@@ -18,6 +18,7 @@
 
 package com.homeadvisor.kafdrop.service;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
@@ -610,20 +611,26 @@ public class CuratorKafkaMonitor implements KafkaMonitor
 
    private ConsumerRegistrationVO readConsumerRegistration(ZKGroupDirs groupDirs, String id)
    {
-      try
-      {
-         ChildData data = consumerTreeCache.getCurrentData(groupDirs.consumerRegistryDir() + "/" + id);
-         final Map<String, Object> consumerData = objectMapper.reader(Map.class).readValue(data.getData());
-         Map<String, Integer> subscriptions = (Map<String, Integer>) consumerData.get("subscription");
+       try {
+           ChildData data = consumerTreeCache.getCurrentData(groupDirs.consumerRegistryDir() + "/" + id);
+           final Map<String, Object> consumerData = objectMapper.reader(Map.class).readValue(data.getData());
+           Map<String, Integer> subscriptions = (Map<String, Integer>) consumerData.get("subscription");
 
-         ConsumerRegistrationVO vo = new ConsumerRegistrationVO(id);
-         vo.setSubscriptions(subscriptions);
-         return vo;
-      }
-      catch (IOException ex)
-      {
-         throw Throwables.propagate(ex);
-      }
+           ConsumerRegistrationVO vo = new ConsumerRegistrationVO(id);
+           vo.setSubscriptions(subscriptions);
+           return vo;
+       } catch (JsonParseException ex) {
+           LOG.error("group:{}, consumerGroupDir:{}, consumerRegistryDir:{}, consumerDir:{}, id:{}", groupDirs.group(),
+                   groupDirs.consumerGroupDir(),
+                   groupDirs.consumerRegistryDir(),
+                   groupDirs.consumerDir(), id);
+           System.err.println("groupDirs:" + groupDirs.group() + ", id:" + id);
+           ConsumerRegistrationVO vo = new ConsumerRegistrationVO(id);
+           vo.setSubscriptions(new HashMap<>());
+           return vo;
+       } catch (IOException ex) {
+           throw Throwables.propagate(ex);
+       }
    }
 
    private Stream<ConsumerPartitionVO> getConsumerPartitionStream(String groupId,
